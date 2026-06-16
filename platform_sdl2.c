@@ -1,10 +1,8 @@
 /*
  * platform_sdl2.c - SDL2 renderer for ProgressBar95
- * Cross-platform: Linux/Wayland, Windows (Win98+), macOS
  *
  * Compile: gcc -o progressbar95 platform_sdl2.c game.c -lSDL2 -lSDL2_ttf
  * Wayland: SDL_VIDEODRIVER=wayland ./progressbar95
- * Needs: libsdl2-dev libsdl2-ttf-dev (apt) / sdl2 sdl2_ttf (pacman)
  */
 
 #include <SDL2/SDL.h>
@@ -22,31 +20,28 @@ static SDL_Renderer *g_ren;
 static TTF_Font     *g_font;
 static TTF_Font     *g_fontLg;
 
-/* ---- color helpers ---- */
-
 typedef struct { Uint8 r, g, b; } Col;
 
 static Col dot_col(DotKind k) {
     switch (k) {
         case DOT_BLUE:   return (Col){0,80,220};
-        case DOT_ORANGE: return (Col){255,140,0};
+        case DOT_YELLOW: return (Col){210,200,0};
         case DOT_PINK:   return (Col){255,50,150};
         case DOT_GREY:   return (Col){150,150,150};
         case DOT_RED:    return (Col){200,0,0};
         case DOT_RANDOM: return (Col){180,0,200};
         case DOT_GREEN:  return (Col){0,180,0};
+        case DOT_CYAN:   return (Col){0,200,200};
         default:         return (Col){255,255,255};
     }
 }
 
 static Col cycle_col(void) {
     static Col c[] = {
-        {0,80,220},{255,140,0},{255,50,150},{150,150,150},{200,0,0},{0,180,0}
+        {0,80,220},{210,200,0},{255,50,150},{150,150,150},{200,0,0},{0,180,0}
     };
-    return c[(g_animTick/6)%6];
+    return c[(g_animTick/5)%6];
 }
-
-/* ---- text rendering ---- */
 
 static void rtext(TTF_Font *f, int x, int y, const char *s, Uint8 r, Uint8 g, Uint8 b) {
     SDL_Color col = {r,g,b,255};
@@ -71,34 +66,70 @@ static void rtxt_lg(int x, int y, const char *s, Uint8 r, Uint8 g, Uint8 b) {
     rtext(g_fontLg ? g_fontLg : g_font, x, y, s, r, g, b);
 }
 
-/* ---- draw helpers ---- */
-
 static void fill(int x, int y, int w, int h, Uint8 r, Uint8 g, Uint8 b) {
     SDL_Rect rc = {x,y,w,h};
     SDL_SetRenderDrawColor(g_ren,r,g,b,255);
     SDL_RenderFillRect(g_ren,&rc);
 }
 
-static void outline(int x, int y, int w, int h, Uint8 r, Uint8 g, Uint8 b) {
-    SDL_Rect rc = {x,y,w,h};
-    SDL_SetRenderDrawColor(g_ren,r,g,b,255);
-    SDL_RenderDrawRect(g_ren,&rc);
+static void hline(int x, int y, int w, Uint8 r, Uint8 g, Uint8 b) {
+    fill(x, y, w, 1, r, g, b);
+}
+
+static void vline(int x, int y, int h, Uint8 r, Uint8 g, Uint8 b) {
+    fill(x, y, 1, h, r, g, b);
+}
+
+static void win95_sunken(int x, int y, int w, int h) {
+    /* outer shadow */
+    hline(x,   y,     w, 128,128,128);
+    vline(x,   y,     h, 128,128,128);
+    hline(x,   y+h-1, w, 255,255,255);
+    vline(x+w-1, y,   h, 255,255,255);
+    /* inner shadow */
+    hline(x+1, y+1,     w-2, 0,0,0);
+    vline(x+1, y+1,     h-2, 0,0,0);
+    hline(x+1, y+h-2,   w-2, 192,192,192);
+    vline(x+w-2, y+1,   h-2, 192,192,192);
 }
 
 static void draw_bar(int x, int y) {
-    int fillW = g_bar_display_pct*(BAR_W-4)/100;
-    char pct[16];
-    fill(x,y,BAR_W,BAR_H,192,192,192);
-    outline(x,y,BAR_W,BAR_H,0,0,0);
-    if (fillW>0) fill(x+2,y+2,fillW,BAR_H-4,0,0,128);
+    int fillW, sx, fill_end_x;
+    char pct[20];
+    Uint8 fr, fg, fb;
+
+    fillW = g_bar_display_pct * (BAR_W - 4) / 100;
+    if (fillW > BAR_W - 4) fillW = BAR_W - 4;
+
+    /* interior background - Win95 3D face grey */
+    fill(x, y, BAR_W, BAR_H, 212,208,200);
+
+    /* segmented progress fill */
+    if (fillW > 0 && !g_null_active) {
+        fr = g_pink_active ? 200 : 0;
+        fg = 0;
+        fb = g_pink_active ? 100 : 128;
+        sx = x + 2;
+        fill_end_x = x + 2 + fillW;
+        while (sx + 8 <= fill_end_x) {
+            fill(sx, y+2, 8, BAR_H-4, fr, fg, fb);
+            sx += 10;
+        }
+        if (sx < fill_end_x)
+            fill(sx, y+2, fill_end_x - sx, BAR_H-4, fr, fg, fb);
+    }
+
+    /* Win95 sunken border drawn on top */
+    win95_sunken(x, y, BAR_W, BAR_H);
+
+    /* label */
     if (g_bar_label[0]) {
         strncpy(pct, g_bar_label, sizeof(pct)-1);
         pct[sizeof(pct)-1] = '\0';
     } else {
-        sprintf(pct,"%d%%",g_progress);
+        sprintf(pct, "%d %%", g_progress);
     }
-    if (fillW>BAR_W/2) rtxt(x+BAR_W/2-12,y+3,pct,255,255,255);
-    else               rtxt(x+BAR_W/2-12,y+3,pct,0,0,0);
+    rtxt(x + BAR_W/2 - 16, y + (BAR_H - 13)/2, pct, 0,0,0);
 }
 
 static void draw_ghost(int x, int y, int idx, int total) {
@@ -111,22 +142,23 @@ static void draw_dot(Dot *d) {
     Col c;
     const char *ch;
     int py = d->y / 256;
-    if (d->kind==DOT_RED) {
-        int fl=(g_animTick/4)%2;
-        c.r=fl?200:120; c.g=0; c.b=0;
-        ch="!";
-    } else if (d->kind==DOT_RANDOM) {
-        c=cycle_col(); ch="?";
-    } else if (d->kind==DOT_GREY) {
-        c=dot_col(d->kind); ch="0";
-    } else if (d->kind==DOT_PINK) {
-        c=dot_col(d->kind); ch="-";
+
+    if (d->kind == DOT_RED) {
+        int fl = (g_animTick/4)%2;
+        c.r = fl?200:120; c.g = 0; c.b = 0;
+        ch = "!";
+    } else if (d->kind == DOT_RANDOM) {
+        c = cycle_col(); ch = "?";
+    } else if (d->kind == DOT_GREY) {
+        c = dot_col(DOT_GREY); ch = "0";
+    } else if (d->kind == DOT_PINK) {
+        c = dot_col(DOT_PINK); ch = "-";
     } else {
-        c=dot_col(d->kind); ch=NULL;
+        c = dot_col(d->kind); ch = NULL;
     }
-    /* VGA text mode: colored cell; only grey/pink/red/random get a character */
+
     fill(d->x, py, 10, 16, c.r, c.g, c.b);
-    if (ch) rtxt(d->x+1, py, ch, 255, 255, 255);
+    if (ch) rtxt(d->x+1, py, ch, 255,255,255);
 }
 
 static void draw_bsod(void) {
@@ -144,7 +176,7 @@ static void draw_bsod(void) {
 static void draw_gameover(void) {
     char msg[128];
     fill(0,0,WIN_W,WIN_H,0,0,0);
-    rtxt_lg(WIN_W/2-50,WIN_H/2-30,"GAME OVER",255,255,255);
+    rtxt_lg(WIN_W/2-60,WIN_H/2-30,"GAME OVER",255,255,255);
     sprintf(msg,"Score: %d   Level: %d",g_score,g_level);
     rtxt(WIN_W/2-70,WIN_H/2+10,msg,255,255,255);
     rtxt(WIN_W/2-90,WIN_H/2+40,"Press ENTER to play again",255,255,255);
@@ -166,7 +198,7 @@ static void render(void) {
         draw_ghost(g_ghosts[idx].x,g_ghosts[idx].y,i,g_gCount);
     }
     for (i=0; i<NUM_DOTS; i++)
-        if (g_dots[i].alive) draw_dot(&g_dots[i]);
+        if (g_dots[i].alive && g_dots[i].y/256 >= 0) draw_dot(&g_dots[i]);
     draw_bar(g_barX,g_barY);
 
     fill(0,AREA_H,WIN_W,22,192,192,192);
@@ -176,8 +208,6 @@ static void render(void) {
 
     SDL_RenderPresent(g_ren);
 }
-
-/* ---- font loading ---- */
 
 static TTF_Font *try_font(int sz) {
     const char *paths[] = {
@@ -194,8 +224,6 @@ static TTF_Font *try_font(int sz) {
     return NULL;
 }
 
-/* ---- main ---- */
-
 int main(int argc, char *argv[]) {
     SDL_Event e;
     Uint32 last, now;
@@ -211,8 +239,8 @@ int main(int argc, char *argv[]) {
     g_ren = SDL_CreateRenderer(g_win,-1,
         SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
 
-    g_font  = try_font(13);
-    g_fontLg= try_font(28);
+    g_font   = try_font(13);
+    g_fontLg = try_font(28);
 
     game_init();
     last = SDL_GetTicks();
@@ -220,34 +248,25 @@ int main(int argc, char *argv[]) {
     while (running) {
         while (SDL_PollEvent(&e)) {
             if (e.type==SDL_QUIT) { running=0; break; }
-
             if (e.type==SDL_KEYDOWN) {
                 if (e.key.keysym.sym==SDLK_ESCAPE) { running=0; break; }
-                if (g_bsod) {
-                    game_dismiss_bsod();
-                } else if (g_gameOver && e.key.keysym.sym==SDLK_RETURN) {
-                    game_restart();
-                }
+                if (g_bsod) game_dismiss_bsod();
+                else if (g_gameOver && e.key.keysym.sym==SDLK_RETURN) game_restart();
             }
-
             if (e.type==SDL_MOUSEBUTTONDOWN && e.button.button==SDL_BUTTON_LEFT) {
                 if (g_bsod) game_dismiss_bsod();
                 else game_click(e.button.x, e.button.y);
             }
-            if (e.type==SDL_MOUSEBUTTONUP && e.button.button==SDL_BUTTON_LEFT) {
+            if (e.type==SDL_MOUSEBUTTONUP && e.button.button==SDL_BUTTON_LEFT)
                 game_release();
-            }
-            if (e.type==SDL_MOUSEMOTION) {
+            if (e.type==SDL_MOUSEMOTION)
                 game_drag(e.motion.x, e.motion.y);
-            }
         }
-
         now = SDL_GetTicks();
         if (now-last >= (Uint32)TICK_MS) {
-            last=now;
+            last = now;
             if (!g_gameOver) game_tick();
         }
-
         render();
     }
 
