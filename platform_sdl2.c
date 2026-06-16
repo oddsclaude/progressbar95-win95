@@ -104,23 +104,28 @@ static void draw_ghost(int x, int y, int idx, int total) {
 
 static void draw_dot(Dot *d) {
     Col c;
-    const char *ch = NULL;
+    const char *ch;
+    int py = d->y / 256;
     if (d->kind==DOT_RED) {
         int fl=(g_animTick/4)%2;
         c.r=fl?200:120; c.g=0; c.b=0;
         ch="!";
     } else if (d->kind==DOT_RANDOM) {
         c=cycle_col(); ch="?";
+    } else if (d->kind==DOT_GREY) {
+        c=dot_col(d->kind); ch="0";
+    } else if (d->kind==DOT_BLUE) {
+        c=dot_col(d->kind); ch="B";
+    } else if (d->kind==DOT_ORANGE) {
+        c=dot_col(d->kind); ch="O";
+    } else if (d->kind==DOT_PINK) {
+        c=dot_col(d->kind); ch="P";
     } else {
-        c=dot_col(d->kind);
-        if (d->kind==DOT_GREY) ch="0";
+        c=dot_col(d->kind); ch="G";
     }
-    fill(d->x,d->y,16,16,c.r,c.g,c.b);
-    outline(d->x,d->y,16,16,0,0,0);
-    if (ch) {
-        Uint8 t=(d->kind==DOT_GREY)?50:255;
-        rtxt(d->x+3,d->y+1,ch,t,t,t);
-    }
+    /* VGA text mode: colored cell background + white glyph on top */
+    fill(d->x, py, 10, 16, c.r, c.g, c.b);
+    rtxt(d->x+1, py, ch, 255, 255, 255);
 }
 
 static void draw_bsod(void) {

@@ -89,6 +89,8 @@ static void draw_dot(HDC hdc, Dot *d) {
     COLORREF c;
     const char *ch;
     int py = d->y / 256;
+    RECT r;
+    HBRUSH br;
 
     if (d->kind == DOT_RED) {
         c = (g_animTick/4)%2 ? RGB(200,0,0) : RGB(120,0,0);
@@ -108,10 +110,14 @@ static void draw_dot(HDC hdc, Dot *d) {
         c = dot_color(d->kind); ch = "G";
     }
 
-    /* VGA text mode style - character only, no background box */
+    /* VGA text mode: colored cell background + white glyph on top */
+    r.left=d->x; r.top=py; r.right=d->x+10; r.bottom=py+16;
+    br = CreateSolidBrush(c);
+    FillRect(hdc, &r, br);
+    DeleteObject(br);
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, c);
-    TextOut(hdc, d->x, py, ch, 1);
+    SetTextColor(hdc, RGB(255,255,255));
+    TextOut(hdc, d->x+1, py, ch, 1);
 }
 
 static void draw_bsod(HDC hdc) {
