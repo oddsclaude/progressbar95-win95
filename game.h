@@ -6,7 +6,7 @@
 
 #define AREA_W  640
 #define AREA_H  460
-#define BAR_W   400
+#define BAR_W   288   /* 45% of AREA_W */
 #define BAR_H    24
 #define MAX_SEGS 22   /* 20 = 100%, 22 = 110% via cyan */
 #define NUM_SEGS 16   /* falling segments */
