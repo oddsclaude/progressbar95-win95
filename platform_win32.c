@@ -20,22 +20,22 @@ static HWND g_hwnd;
 
 static COLORREF dot_color(DotKind k) {
     switch (k) {
-        case DOT_BLUE:   return RGB(0,80,220);
-        case DOT_YELLOW: return RGB(210,200,0);
-        case DOT_PINK:   return RGB(255,50,150);
-        case DOT_GREY:   return RGB(150,150,150);
-        case DOT_RED:    return RGB(200,0,0);
-        case DOT_RANDOM: return RGB(180,0,200);
-        case DOT_GREEN:  return RGB(0,180,0);
-        case DOT_CYAN:   return RGB(0,200,200);
+        case DOT_BLUE:   return RGB(  0,  0,170);
+        case DOT_YELLOW: return RGB(255,140,  0);  /* orange in-game */
+        case DOT_PINK:   return RGB(255,  0,200);
+        case DOT_GREY:   return RGB(170,170,170);
+        case DOT_RED:    return RGB(220,  0,  0);
+        case DOT_RANDOM: return RGB(255,255,255);  /* cycles; white fallback */
+        case DOT_GREEN:  return RGB(  0,200,  0);
+        case DOT_CYAN:   return RGB(  0,190,255);
         default:         return RGB(255,255,255);
     }
 }
 
 static COLORREF cycle_color(void) {
     static COLORREF c[] = {
-        RGB(0,80,220),RGB(210,200,0),RGB(255,50,150),
-        RGB(150,150,150),RGB(200,0,0),RGB(0,180,0)
+        RGB(0,0,170), RGB(255,140,0), RGB(255,0,200),
+        RGB(170,170,170), RGB(220,0,0), RGB(0,200,0)
     };
     return c[(g_animTick/5)%6];
 }
@@ -50,13 +50,11 @@ static void draw_bar(HDC hdc, int x, int y) {
     fillW = g_bar_display_pct * (BAR_W - 4) / 100;
     if (fillW > BAR_W - 4) fillW = BAR_W - 4;
 
-    /* interior background */
     r.left=x; r.top=y; r.right=x+BAR_W; r.bottom=y+BAR_H;
     br = CreateSolidBrush(RGB(212,208,200));
     FillRect(hdc, &r, br);
     DeleteObject(br);
 
-    /* segmented fill */
     if (fillW > 0 && !g_null_active) {
         fill_color = g_pink_active ? RGB(200,0,100) : RGB(0,0,128);
         sx = x + 2;
@@ -76,11 +74,9 @@ static void draw_bar(HDC hdc, int x, int y) {
         }
     }
 
-    /* Win95 sunken border */
     r.left=x; r.top=y; r.right=x+BAR_W; r.bottom=y+BAR_H;
     DrawEdge(hdc, &r, EDGE_SUNKEN, BF_RECT);
 
-    /* label */
     if (g_bar_label[0]) {
         lstrcpyn(pct, g_bar_label, sizeof(pct));
     } else {
@@ -116,7 +112,7 @@ static void draw_dot(HDC hdc, Dot *d) {
     py = d->y / 256;
 
     if (d->kind == DOT_RED) {
-        c  = (g_animTick/4)%2 ? RGB(200,0,0) : RGB(120,0,0);
+        c  = (g_animTick/4)%2 ? RGB(220,0,0) : RGB(120,0,0);
         ch = "!";
     } else if (d->kind == DOT_RANDOM) {
         c  = cycle_color();

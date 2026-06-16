@@ -24,21 +24,22 @@ typedef struct { Uint8 r, g, b; } Col;
 
 static Col dot_col(DotKind k) {
     switch (k) {
-        case DOT_BLUE:   return (Col){0,80,220};
-        case DOT_YELLOW: return (Col){210,200,0};
-        case DOT_PINK:   return (Col){255,50,150};
-        case DOT_GREY:   return (Col){150,150,150};
-        case DOT_RED:    return (Col){200,0,0};
-        case DOT_RANDOM: return (Col){180,0,200};
-        case DOT_GREEN:  return (Col){0,180,0};
-        case DOT_CYAN:   return (Col){0,200,200};
-        default:         return (Col){255,255,255};
+        case DOT_BLUE:   return (Col){0,   0, 170};
+        case DOT_YELLOW: return (Col){255,140,   0};  /* orange in-game */
+        case DOT_PINK:   return (Col){255,  0, 200};
+        case DOT_GREY:   return (Col){170,170, 170};
+        case DOT_RED:    return (Col){220,  0,   0};
+        case DOT_RANDOM: return (Col){255,255, 255};  /* cycles; white fallback */
+        case DOT_GREEN:  return (Col){  0,200,   0};
+        case DOT_CYAN:   return (Col){  0,190, 255};
+        default:         return (Col){255,255, 255};
     }
 }
 
 static Col cycle_col(void) {
+    /* random dot cycles through the 6 non-random colours */
     static Col c[] = {
-        {0,80,220},{210,200,0},{255,50,150},{150,150,150},{200,0,0},{0,180,0}
+        {0,0,170},{255,140,0},{255,0,200},{170,170,170},{220,0,0},{0,200,0}
     };
     return c[(g_animTick/5)%6];
 }
@@ -81,15 +82,13 @@ static void vline(int x, int y, int h, Uint8 r, Uint8 g, Uint8 b) {
 }
 
 static void win95_sunken(int x, int y, int w, int h) {
-    /* outer shadow */
-    hline(x,   y,     w, 128,128,128);
-    vline(x,   y,     h, 128,128,128);
-    hline(x,   y+h-1, w, 255,255,255);
-    vline(x+w-1, y,   h, 255,255,255);
-    /* inner shadow */
-    hline(x+1, y+1,     w-2, 0,0,0);
-    vline(x+1, y+1,     h-2, 0,0,0);
-    hline(x+1, y+h-2,   w-2, 192,192,192);
+    hline(x,     y,     w, 128,128,128);
+    vline(x,     y,     h, 128,128,128);
+    hline(x,     y+h-1, w, 255,255,255);
+    vline(x+w-1, y,     h, 255,255,255);
+    hline(x+1,   y+1,   w-2, 0,0,0);
+    vline(x+1,   y+1,   h-2, 0,0,0);
+    hline(x+1,   y+h-2, w-2, 192,192,192);
     vline(x+w-2, y+1,   h-2, 192,192,192);
 }
 
@@ -101,10 +100,8 @@ static void draw_bar(int x, int y) {
     fillW = g_bar_display_pct * (BAR_W - 4) / 100;
     if (fillW > BAR_W - 4) fillW = BAR_W - 4;
 
-    /* interior background - Win95 3D face grey */
     fill(x, y, BAR_W, BAR_H, 212,208,200);
 
-    /* segmented progress fill */
     if (fillW > 0 && !g_null_active) {
         fr = g_pink_active ? 200 : 0;
         fg = 0;
@@ -119,10 +116,8 @@ static void draw_bar(int x, int y) {
             fill(sx, y+2, fill_end_x - sx, BAR_H-4, fr, fg, fb);
     }
 
-    /* Win95 sunken border drawn on top */
     win95_sunken(x, y, BAR_W, BAR_H);
 
-    /* label */
     if (g_bar_label[0]) {
         strncpy(pct, g_bar_label, sizeof(pct)-1);
         pct[sizeof(pct)-1] = '\0';
@@ -145,7 +140,7 @@ static void draw_dot(Dot *d) {
 
     if (d->kind == DOT_RED) {
         int fl = (g_animTick/4)%2;
-        c.r = fl?200:120; c.g = 0; c.b = 0;
+        c.r = fl?220:120; c.g = 0; c.b = 0;
         ch = "!";
     } else if (d->kind == DOT_RANDOM) {
         c = cycle_col(); ch = "?";
