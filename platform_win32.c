@@ -86,34 +86,32 @@ static COLORREF cycle_color(void) {
 }
 
 static void draw_dot(HDC hdc, Dot *d) {
-    RECT r;
-    HBRUSH br;
-    COLORREF bg;
-    const char *ch = NULL;
+    COLORREF c;
+    const char *ch;
+    int py = d->y / 256;
 
     if (d->kind == DOT_RED) {
-        bg = (g_animTick/4)%2 ? RGB(200,0,0) : RGB(120,0,0);
+        c = (g_animTick/4)%2 ? RGB(200,0,0) : RGB(120,0,0);
         ch = "!";
     } else if (d->kind == DOT_RANDOM) {
-        bg = cycle_color();
+        c = cycle_color();
         ch = "?";
+    } else if (d->kind == DOT_GREY) {
+        c = dot_color(DOT_GREY); ch = "0";
+    } else if (d->kind == DOT_BLUE) {
+        c = dot_color(DOT_BLUE); ch = "B";
+    } else if (d->kind == DOT_ORANGE) {
+        c = dot_color(DOT_ORANGE); ch = "O";
+    } else if (d->kind == DOT_PINK) {
+        c = dot_color(DOT_PINK); ch = "P";
     } else {
-        bg = dot_color(d->kind);
-        if (d->kind == DOT_GREY) ch = "0";
+        c = dot_color(d->kind); ch = "G";
     }
 
-    br = CreateSolidBrush(bg);
-    r.left=d->x; r.top=d->y; r.right=d->x+16; r.bottom=d->y+16;
-    FillRect(hdc, &r, br); DeleteObject(br);
-    br = CreateSolidBrush(RGB(0,0,0));
-    FrameRect(hdc, &r, br); DeleteObject(br);
-
-    if (ch) {
-        BYTE t = (d->kind==DOT_GREY) ? 50 : 255;
-        SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, RGB(t,t,t));
-        TextOut(hdc, d->x+3, d->y+1, ch, 1);
-    }
+    /* VGA text mode style - character only, no background box */
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, c);
+    TextOut(hdc, d->x, py, ch, 1);
 }
 
 static void draw_bsod(HDC hdc) {
