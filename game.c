@@ -3,6 +3,7 @@
  */
 #include "game.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <time.h>
 
 int   g_barX, g_barY;
@@ -17,6 +18,10 @@ int   g_bsod;
 int   g_level;
 int   g_score;
 int   g_animTick;
+int   g_null_ctr;
+int   g_neg_ctr;
+int   g_bar_display_pct;
+char  g_bar_label[16];
 
 static int g_gTimer;
 static int g_dragging;
@@ -33,14 +38,17 @@ static DotKind rand_kind(void) {
     return DOT_GREEN;
 }
 
+static void spawn_one_dot(int i) {
+    g_dots[i].x    = 10 + rand() % (AREA_W - 20);
+    g_dots[i].y    = -(rand() % (AREA_H / 2)) * 256; /* stagger start above screen */
+    g_dots[i].vy   = 128 + rand() % 256;              /* ~0.5 to 1.5 px/tick */
+    g_dots[i].kind = rand_kind();
+    g_dots[i].alive = 1;
+}
+
 static void spawn_dots(void) {
     int i;
-    for (i = 0; i < NUM_DOTS; i++) {
-        g_dots[i].x = 20 + rand() % (AREA_W - 50);
-        g_dots[i].y = 20 + rand() % (AREA_H - 50);
-        g_dots[i].kind = rand_kind();
-        g_dots[i].alive = 1;
-    }
+    for (i = 0; i < NUM_DOTS; i++) spawn_one_dot(i);
 }
 
 static void reset_bar(void) {
@@ -50,19 +58,54 @@ static void reset_bar(void) {
     g_dragging = 0;
 }
 
+static void update_bar_display(void) {
+    if (g_null_ctr > 0) {
+        g_bar_display_pct = g_null_ctr;
+        sprintf(g_bar_label, "NULL%d", g_null_ctr);
+    } else if (g_neg_ctr > 0) {
+        g_bar_display_pct = g_neg_ctr;
+        sprintf(g_bar_label, "%%-% d", g_neg_ctr);
+    } else {
+        g_bar_display_pct = g_progress;
+        g_bar_label[0] = '\0';
+    }
+}
+
 static void apply_dot(DotKind k) {
     if (k == DOT_RANDOM) k = (DotKind)(rand() % 7);
     switch (k) {
-        case DOT_BLUE:   g_progress += 5; g_score += 10; break;
-        case DOT_ORANGE: g_progress += 5; g_score += 5; g_perfectionist = 0; break;
-        case DOT_PINK:   g_progress -= 5; g_perfectionist = 0; break;
-        case DOT_GREY:   break;
-        case DOT_RED:    g_bsod = 1; g_gameOver = 1; break;
-        case DOT_GREEN:  g_progress = 100; g_score += 50; break;
-        default:         break;
+        case DOT_BLUE:
+            g_null_ctr = 0; g_neg_ctr = 0;
+            g_progress += 5; g_score += 10;
+            break;
+        case DOT_ORANGE:
+            g_null_ctr = 0; g_neg_ctr = 0;
+            g_progress += 5; g_score += 5; g_perfectionist = 0;
+            break;
+        case DOT_PINK:
+            g_null_ctr = 0;
+            g_neg_ctr += 5;
+            g_progress -= 5;
+            if (g_neg_ctr >= 100) { g_neg_ctr = 100; g_progress = 100; }
+            break;
+        case DOT_GREY:
+            g_neg_ctr = 0;
+            g_null_ctr += 5;
+            if (g_null_ctr >= 100) { g_null_ctr = 100; g_progress = 100; }
+            break;
+        case DOT_RED:
+            g_null_ctr = 0; g_neg_ctr = 0;
+            g_bsod = 1; g_gameOver = 1;
+            break;
+        case DOT_GREEN:
+            g_null_ctr = 0; g_neg_ctr = 0;
+            g_progress = 100; g_score += 50;
+            break;
+        default: break;
     }
     if (g_progress < 0)   g_progress = 0;
     if (g_progress > 100) g_progress = 100;
+    update_bar_display();
 }
 
 void game_init(void) {
@@ -79,6 +122,10 @@ void game_restart(void) {
     g_gameOver = 0;
     g_bsod = 0;
     g_animTick = 0;
+    g_null_ctr = 0;
+    g_neg_ctr = 0;
+    g_bar_display_pct = 0;
+    g_bar_label[0] = '\0';
     reset_bar();
     spawn_dots();
 }
@@ -131,18 +178,33 @@ void game_tick(void) {
         if (g_gCount < MAX_GHOSTS) g_gCount++;
     }
 
-    /* Dot collision */
+    /* Move dots down + collision check */
     for (i = 0; i < NUM_DOTS; i++) {
-        int bx, by, bx2, by2, dx, dy, dx2, dy2;
+        int px, py, bx, by, bx2, by2, dx2, dy2;
         if (!g_dots[i].alive) continue;
+
+        g_dots[i].y += g_dots[i].vy;
+        px = g_dots[i].x;
+        py = g_dots[i].y / 256;
+
+        /* Fell off bottom - respawn at top */
+        if (py > AREA_H + 10) {
+            spawn_one_dot(i);
+            continue;
+        }
+
+        /* Skip until actually on screen */
+        if (py < -16) continue;
+
         bx = g_barX; by = g_barY;
         bx2 = g_barX + BAR_W; by2 = g_barY + BAR_H;
-        dx = g_dots[i].x; dy = g_dots[i].y;
-        dx2 = dx + 16; dy2 = dy + 16;
-        if (bx < dx2 && bx2 > dx && by < dy2 && by2 > dy) {
+        dx2 = px + 12; dy2 = py + 16;
+        if (bx < dx2 && bx2 > px && by < dy2 && by2 > py) {
             g_dots[i].alive = 0;
             apply_dot(g_dots[i].kind);
             if (g_gameOver) return;
+            /* respawn this dot from top */
+            spawn_one_dot(i);
         }
     }
 
@@ -152,18 +214,12 @@ void game_tick(void) {
         g_score += 100 + (g_perfectionist ? 50 : 0);
         g_progress = 0;
         g_perfectionist = 1;
+        g_null_ctr = 0;
+        g_neg_ctr = 0;
+        g_bar_display_pct = 0;
+        g_bar_label[0] = '\0';
         reset_bar();
         spawn_dots();
         return;
-    }
-
-    /* Respawn dead dots */
-    for (i = 0; i < NUM_DOTS; i++) {
-        if (!g_dots[i].alive && rand() % 300 == 0) {
-            g_dots[i].x = 20 + rand() % (AREA_W - 50);
-            g_dots[i].y = 20 + rand() % (AREA_H - 50);
-            g_dots[i].kind = rand_kind();
-            g_dots[i].alive = 1;
-        }
     }
 }

@@ -85,13 +85,18 @@ static void outline(int x, int y, int w, int h, Uint8 r, Uint8 g, Uint8 b) {
     SDL_RenderDrawRect(g_ren,&rc);
 }
 
-static void draw_bar(int x, int y, int prog) {
-    int fillW = prog*(BAR_W-4)/100;
-    char pct[8];
+static void draw_bar(int x, int y) {
+    int fillW = g_bar_display_pct*(BAR_W-4)/100;
+    char pct[16];
     fill(x,y,BAR_W,BAR_H,192,192,192);
     outline(x,y,BAR_W,BAR_H,0,0,0);
     if (fillW>0) fill(x+2,y+2,fillW,BAR_H-4,0,0,128);
-    sprintf(pct,"%d%%",prog);
+    if (g_bar_label[0]) {
+        strncpy(pct, g_bar_label, sizeof(pct)-1);
+        pct[sizeof(pct)-1] = '\0';
+    } else {
+        sprintf(pct,"%d%%",g_progress);
+    }
     if (fillW>BAR_W/2) rtxt(x+BAR_W/2-12,y+3,pct,255,255,255);
     else               rtxt(x+BAR_W/2-12,y+3,pct,0,0,0);
 }
@@ -162,7 +167,7 @@ static void render(void) {
     }
     for (i=0; i<NUM_DOTS; i++)
         if (g_dots[i].alive) draw_dot(&g_dots[i]);
-    draw_bar(g_barX,g_barY,g_progress);
+    draw_bar(g_barX,g_barY);
 
     fill(0,AREA_H,WIN_W,22,192,192,192);
     sprintf(hud,"Level: %d   Score: %d   Lives: %d   %s",

@@ -21,13 +21,13 @@ static HWND g_hwnd;
 
 /* ---- rendering helpers ---- */
 
-static void draw_bar(HDC hdc, int x, int y, int prog) {
+static void draw_bar(HDC hdc, int x, int y) {
     RECT r;
     HBRUSH br;
     HPEN pen, oldPen;
     HBRUSH oldBr;
-    int fillW = prog * (BAR_W - 4) / 100;
-    char pct[8];
+    int fillW = g_bar_display_pct * (BAR_W - 4) / 100;
+    char pct[16];
 
     pen = CreatePen(PS_SOLID, 1, RGB(0,0,0));
     oldPen = (HPEN)SelectObject(hdc, pen);
@@ -44,7 +44,11 @@ static void draw_bar(HDC hdc, int x, int y, int prog) {
         DeleteObject(br);
     }
 
-    sprintf(pct, "%d%%", prog);
+    if (g_bar_label[0]) {
+        lstrcpyn(pct, g_bar_label, sizeof(pct));
+    } else {
+        sprintf(pct, "%d%%", g_progress);
+    }
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, fillW > BAR_W/2 ? RGB(255,255,255) : RGB(0,0,0));
     TextOut(hdc, x+BAR_W/2-12, y+3, pct, lstrlen(pct));
@@ -195,7 +199,7 @@ static void on_paint(HWND hwnd) {
         }
         for (i = 0; i < NUM_DOTS; i++)
             if (g_dots[i].alive) draw_dot(memDC, &g_dots[i]);
-        draw_bar(memDC, g_barX, g_barY, g_progress);
+        draw_bar(memDC, g_barX, g_barY);
 
         bg = CreateSolidBrush(RGB(192,192,192));
         clientR.top = clientR.bottom - 22;

@@ -19,7 +19,9 @@ typedef enum {
 typedef struct { int x, y; } Ghost;
 
 typedef struct {
-    int x, y;
+    int x;
+    int y;       /* fixed-point: actual pixels = y / 256 */
+    int vy;      /* fall speed, fixed-point per tick */
     DotKind kind;
     int alive;
 } Dot;
@@ -37,6 +39,10 @@ extern int   g_bsod;
 extern int   g_level;
 extern int   g_score;
 extern int   g_animTick;
+extern int   g_null_ctr;        /* grey-only hidden fill counter (0-100) */
+extern int   g_neg_ctr;         /* pink-only hidden fill counter (0-100) */
+extern int   g_bar_display_pct; /* what the bar fill actually shows */
+extern char  g_bar_label[16];   /* bar label override; empty = normal N% */
 
 /* Game API */
 void game_init(void);
