@@ -1,59 +1,59 @@
 /*
- * game.h - ProgressBar95 shared game state and interface
+ * game.h - ProgressBar95 shared state and API
  */
 #ifndef GAME_H
 #define GAME_H
 
-#define AREA_W   640
-#define AREA_H   460
-#define BAR_W    400
+#define AREA_W  640
+#define AREA_H  460
+#define BAR_W   400
 #define BAR_H    24
+#define MAX_SEGS 22   /* 20 = 100%, 22 = 110% via cyan */
+#define NUM_SEGS 16   /* falling segments */
 #define MAX_GHOSTS 80
-#define NUM_DOTS   16
+#define GHOST_CLEAR_AFTER 8  /* ticks of no bar movement -> ghosts vanish */
 
 typedef enum {
-    DOT_BLUE,    /* +5%, most common */
-    DOT_YELLOW,  /* corrupted: no progress/points, ruins perfectionist */
-    DOT_PINK,    /* -5% progress */
-    DOT_GREY,    /* neutral, NULL mode counter */
-    DOT_RED,     /* BSOD (left-tip crash is safe) */
-    DOT_RANDOM,  /* slow, resolves to blue/yellow/pink/grey/red */
-    DOT_GREEN,   /* instant 100%, very fast */
-    DOT_CYAN     /* +10% or +15%, can push to 110% */
-} DotKind;
+    SEG_BLUE,    /* +5% (1 slot), most common */
+    SEG_YELLOW,  /* corrupted: occupies slot, no progress, ruins perfectionist */
+    SEG_PINK,    /* removes last seg; adds SEG_PINK only when bar empty/all-pink */
+    SEG_GREY,    /* adds only when bar empty or already has grey (NULL mode) */
+    SEG_RED,     /* BSOD; left-tip crash = safe */
+    SEG_RANDOM,  /* slow, flashing; resolves to blue/yellow/pink/grey/red */
+    SEG_GREEN,   /* fills bar instantly (20 blue), very fast */
+    SEG_CYAN     /* pushes 2 or 3 SEG_BLUE; can reach 110% */
+} SegKind;
 
 typedef struct { int x, y; } Ghost;
 
 typedef struct {
     int x;
-    int y;       /* fixed-point: actual pixels = y / 256 */
-    int vy;      /* fall speed, fixed-point per tick */
-    DotKind kind;
+    int y;        /* fixed-point: actual pixels = y / 256 */
+    int vy;       /* fall speed, fixed-point per tick */
+    SegKind kind;
     int alive;
-} Dot;
+} Seg;
 
-/* Game state - read by platform renderers */
-extern int   g_barX, g_barY;
-extern Ghost g_ghosts[MAX_GHOSTS];
-extern int   g_gHead, g_gCount;
-extern int   g_progress;
-extern int   g_perfectionist;
-extern int   g_lives;
-extern Dot   g_dots[NUM_DOTS];
-extern int   g_gameOver;
-extern int   g_bsod;
-extern int   g_level;
-extern int   g_score;
-extern int   g_animTick;
-extern int   g_null_ctr;        /* grey-only hidden fill counter (0-100) */
-extern int   g_neg_ctr;         /* pink-only hidden fill counter (0-100) */
-extern int   g_bar_display_pct; /* what the bar fill actually shows */
-extern char  g_bar_label[16];   /* bar label override; empty = normal N% */
-extern int   g_null_active;     /* NULL mode: fill transparent, any part catches */
-extern int   g_pink_active;     /* Magic Pink mode: fill renders pink */
-extern int   g_random_active;   /* ??? mode: triggered by random at 0% */
+extern int     g_barX, g_barY;
+extern Ghost   g_ghosts[MAX_GHOSTS];
+extern int     g_gHead, g_gCount;
+extern int     g_ghost_age;     /* ticks since last bar move */
+extern int     g_progress;      /* blue_count * 5 */
+extern int     g_perfectionist;
+extern int     g_lives;
+extern Seg     g_segs[NUM_SEGS];
+extern int     g_gameOver;
+extern int     g_bsod;
+extern int     g_level;
+extern int     g_score;
+extern int     g_animTick;
+extern SegKind g_bar_segs[MAX_SEGS];
+extern int     g_bar_seg_count;
+extern char    g_bar_label[16]; /* "NULL##" / "%%-%d" / empty */
+extern int     g_null_active;   /* NULL mode: transparent fill, any part catches */
+extern int     g_pink_active;   /* magic pink mode */
+extern int     g_random_active; /* ??? mode triggered by random at empty bar */
 
-/* Game API */
 void game_init(void);
 void game_tick(void);
 void game_drag(int mx, int my);

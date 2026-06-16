@@ -11,8 +11,8 @@
 #include <string.h>
 #include "game.h"
 
-#define WIN_W  AREA_W
-#define WIN_H  (AREA_H + 22)
+#define WIN_W   AREA_W
+#define WIN_H   (AREA_H + 22)
 #define TICK_MS 40
 
 static SDL_Window   *g_win;
@@ -22,22 +22,21 @@ static TTF_Font     *g_fontLg;
 
 typedef struct { Uint8 r, g, b; } Col;
 
-static Col dot_col(DotKind k) {
+static Col seg_col(SegKind k) {
     switch (k) {
-        case DOT_BLUE:   return (Col){0,   0, 170};
-        case DOT_YELLOW: return (Col){255,140,   0};  /* orange in-game */
-        case DOT_PINK:   return (Col){255,  0, 200};
-        case DOT_GREY:   return (Col){170,170, 170};
-        case DOT_RED:    return (Col){220,  0,   0};
-        case DOT_RANDOM: return (Col){255,255, 255};  /* cycles; white fallback */
-        case DOT_GREEN:  return (Col){  0,200,   0};
-        case DOT_CYAN:   return (Col){  0,190, 255};
-        default:         return (Col){255,255, 255};
+        case SEG_BLUE:   return (Col){  0,  0,170};
+        case SEG_YELLOW: return (Col){255,140,  0};
+        case SEG_PINK:   return (Col){255,  0,200};
+        case SEG_GREY:   return (Col){170,170,170};
+        case SEG_RED:    return (Col){220,  0,  0};
+        case SEG_GREEN:  return (Col){  0,200,  0};
+        case SEG_CYAN:   return (Col){  0,190,255};
+        case SEG_RANDOM: return (Col){255,255,255};
+        default:         return (Col){255,255,255};
     }
 }
 
 static Col cycle_col(void) {
-    /* random dot cycles through the 6 non-random colours */
     static Col c[] = {
         {0,0,170},{255,140,0},{255,0,200},{170,170,170},{220,0,0},{0,200,0}
     };
@@ -73,13 +72,8 @@ static void fill(int x, int y, int w, int h, Uint8 r, Uint8 g, Uint8 b) {
     SDL_RenderFillRect(g_ren,&rc);
 }
 
-static void hline(int x, int y, int w, Uint8 r, Uint8 g, Uint8 b) {
-    fill(x, y, w, 1, r, g, b);
-}
-
-static void vline(int x, int y, int h, Uint8 r, Uint8 g, Uint8 b) {
-    fill(x, y, 1, h, r, g, b);
-}
+static void hline(int x, int y, int w, Uint8 r, Uint8 g, Uint8 b) { fill(x,y,w,1,r,g,b); }
+static void vline(int x, int y, int h, Uint8 r, Uint8 g, Uint8 b) { fill(x,y,1,h,r,g,b); }
 
 static void win95_sunken(int x, int y, int w, int h) {
     hline(x,     y,     w, 128,128,128);
@@ -93,27 +87,19 @@ static void win95_sunken(int x, int y, int w, int h) {
 }
 
 static void draw_bar(int x, int y) {
-    int fillW, sx, fill_end_x;
+    int i, seg_w, sx;
     char pct[20];
-    Uint8 fr, fg, fb;
 
-    fillW = g_bar_display_pct * (BAR_W - 4) / 100;
-    if (fillW > BAR_W - 4) fillW = BAR_W - 4;
+    seg_w = (BAR_W - 4) / MAX_SEGS;
 
     fill(x, y, BAR_W, BAR_H, 212,208,200);
 
-    if (fillW > 0 && !g_null_active) {
-        fr = g_pink_active ? 200 : 0;
-        fg = 0;
-        fb = g_pink_active ? 100 : 128;
-        sx = x + 2;
-        fill_end_x = x + 2 + fillW;
-        while (sx + 8 <= fill_end_x) {
-            fill(sx, y+2, 8, BAR_H-4, fr, fg, fb);
-            sx += 10;
+    if (!g_null_active) {
+        for (i = 0; i < g_bar_seg_count; i++) {
+            Col c = seg_col(g_bar_segs[i]);
+            sx = x + 2 + i * seg_w;
+            fill(sx, y+2, seg_w-1, BAR_H-4, c.r, c.g, c.b);
         }
-        if (sx < fill_end_x)
-            fill(sx, y+2, fill_end_x - sx, BAR_H-4, fr, fg, fb);
     }
 
     win95_sunken(x, y, BAR_W, BAR_H);
@@ -124,36 +110,35 @@ static void draw_bar(int x, int y) {
     } else {
         sprintf(pct, "%d %%", g_progress);
     }
-    rtxt(x + BAR_W/2 - 16, y + (BAR_H - 13)/2, pct, 0,0,0);
+    rtxt(x + BAR_W/2 - 16, y + (BAR_H-13)/2, pct, 0,0,0);
 }
 
-static void draw_ghost(int x, int y, int idx, int total) {
-    int fade = 200-(idx*200/(total>1?total:1));
-    if (fade<20) fade=20;
-    fill(x,y,BAR_W,BAR_H,(Uint8)fade,(Uint8)fade,(Uint8)fade);
+static void draw_ghost(int x, int y) {
+    /* solid; all vanish at once via g_ghost_age (no fade) */
+    fill(x, y, BAR_W, BAR_H, 180,180,180);
 }
 
-static void draw_dot(Dot *d) {
+static void draw_seg(Seg *s) {
     Col c;
     const char *ch;
-    int py = d->y / 256;
+    int py = s->y / 256;
 
-    if (d->kind == DOT_RED) {
+    if (s->kind == SEG_RED) {
         int fl = (g_animTick/4)%2;
         c.r = fl?220:120; c.g = 0; c.b = 0;
         ch = "!";
-    } else if (d->kind == DOT_RANDOM) {
+    } else if (s->kind == SEG_RANDOM) {
         c = cycle_col(); ch = "?";
-    } else if (d->kind == DOT_GREY) {
-        c = dot_col(DOT_GREY); ch = "0";
-    } else if (d->kind == DOT_PINK) {
-        c = dot_col(DOT_PINK); ch = "-";
+    } else if (s->kind == SEG_GREY) {
+        c = seg_col(SEG_GREY); ch = "0";
+    } else if (s->kind == SEG_PINK) {
+        c = seg_col(SEG_PINK); ch = "-";
     } else {
-        c = dot_col(d->kind); ch = NULL;
+        c = seg_col(s->kind); ch = NULL;
     }
 
-    fill(d->x, py, 10, 16, c.r, c.g, c.b);
-    if (ch) rtxt(d->x+1, py, ch, 255,255,255);
+    fill(s->x, py, 10, 16, c.r, c.g, c.b);
+    if (ch) rtxt(s->x+1, py, ch, 255,255,255);
 }
 
 static void draw_bsod(void) {
@@ -186,17 +171,17 @@ static void render(void) {
     if (g_bsod)     { draw_bsod();     SDL_RenderPresent(g_ren); return; }
     if (g_gameOver) { draw_gameover(); SDL_RenderPresent(g_ren); return; }
 
-    fill(0,0,WIN_W,AREA_H,0,128,128);
+    fill(0,0,WIN_W,AREA_H, 0,128,128);
 
-    for (i=g_gCount-1; i>=0; i--) {
-        int idx=(g_gHead-1-i+MAX_GHOSTS)%MAX_GHOSTS;
-        draw_ghost(g_ghosts[idx].x,g_ghosts[idx].y,i,g_gCount);
+    for (i = 0; i < g_gCount; i++) {
+        int idx = (g_gHead-1-i+MAX_GHOSTS)%MAX_GHOSTS;
+        draw_ghost(g_ghosts[idx].x, g_ghosts[idx].y);
     }
-    for (i=0; i<NUM_DOTS; i++)
-        if (g_dots[i].alive && g_dots[i].y/256 >= 0) draw_dot(&g_dots[i]);
-    draw_bar(g_barX,g_barY);
+    for (i = 0; i < NUM_SEGS; i++)
+        if (g_segs[i].alive && g_segs[i].y/256 >= 0) draw_seg(&g_segs[i]);
+    draw_bar(g_barX, g_barY);
 
-    fill(0,AREA_H,WIN_W,22,192,192,192);
+    fill(0,AREA_H,WIN_W,22, 192,192,192);
     sprintf(hud,"Level: %d   Score: %d   Lives: %d   %s",
         g_level,g_score,g_lives,g_perfectionist?"[Perfectionist]":"");
     rtxt(6,AREA_H+3,hud,0,0,0);
@@ -222,21 +207,18 @@ static TTF_Font *try_font(int sz) {
 int main(int argc, char *argv[]) {
     SDL_Event e;
     Uint32 last, now;
-    int running=1;
+    int running = 1;
     (void)argc; (void)argv;
 
     SDL_Init(SDL_INIT_VIDEO);
     TTF_Init();
-
     g_win = SDL_CreateWindow("ProgressBar95",
-        SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,
-        WIN_W,WIN_H,SDL_WINDOW_SHOWN);
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        WIN_W, WIN_H, SDL_WINDOW_SHOWN);
     g_ren = SDL_CreateRenderer(g_win,-1,
         SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
-
     g_font   = try_font(13);
     g_fontLg = try_font(28);
-
     game_init();
     last = SDL_GetTicks();
 
