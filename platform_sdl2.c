@@ -114,18 +114,14 @@ static void draw_dot(Dot *d) {
         c=cycle_col(); ch="?";
     } else if (d->kind==DOT_GREY) {
         c=dot_col(d->kind); ch="0";
-    } else if (d->kind==DOT_BLUE) {
-        c=dot_col(d->kind); ch="B";
-    } else if (d->kind==DOT_ORANGE) {
-        c=dot_col(d->kind); ch="O";
     } else if (d->kind==DOT_PINK) {
-        c=dot_col(d->kind); ch="P";
+        c=dot_col(d->kind); ch="-";
     } else {
-        c=dot_col(d->kind); ch="G";
+        c=dot_col(d->kind); ch=NULL;
     }
-    /* VGA text mode: colored cell background + white glyph on top */
+    /* VGA text mode: colored cell; only grey/pink/red/random get a character */
     fill(d->x, py, 10, 16, c.r, c.g, c.b);
-    rtxt(d->x+1, py, ch, 255, 255, 255);
+    if (ch) rtxt(d->x+1, py, ch, 255, 255, 255);
 }
 
 static void draw_bsod(void) {

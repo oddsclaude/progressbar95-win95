@@ -89,8 +89,6 @@ static void draw_dot(HDC hdc, Dot *d) {
     COLORREF c;
     const char *ch;
     int py = d->y / 256;
-    RECT r;
-    HBRUSH br;
 
     if (d->kind == DOT_RED) {
         c = (g_animTick/4)%2 ? RGB(200,0,0) : RGB(120,0,0);
@@ -100,24 +98,26 @@ static void draw_dot(HDC hdc, Dot *d) {
         ch = "?";
     } else if (d->kind == DOT_GREY) {
         c = dot_color(DOT_GREY); ch = "0";
-    } else if (d->kind == DOT_BLUE) {
-        c = dot_color(DOT_BLUE); ch = "B";
-    } else if (d->kind == DOT_ORANGE) {
-        c = dot_color(DOT_ORANGE); ch = "O";
     } else if (d->kind == DOT_PINK) {
-        c = dot_color(DOT_PINK); ch = "P";
+        c = dot_color(DOT_PINK); ch = "-";
     } else {
-        c = dot_color(d->kind); ch = "G";
+        c = dot_color(d->kind); ch = NULL;
     }
 
-    /* VGA text mode: colored cell background + white glyph on top */
-    r.left=d->x; r.top=py; r.right=d->x+10; r.bottom=py+16;
-    br = CreateSolidBrush(c);
-    FillRect(hdc, &r, br);
-    DeleteObject(br);
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(255,255,255));
-    TextOut(hdc, d->x+1, py, ch, 1);
+    /* VGA text mode: colored cell; only grey/pink/red/random get a character */
+    {
+        RECT r;
+        HBRUSH br;
+        r.left=d->x; r.top=py; r.right=d->x+10; r.bottom=py+16;
+        br = CreateSolidBrush(c);
+        FillRect(hdc, &r, br);
+        DeleteObject(br);
+    }
+    if (ch) {
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, RGB(255,255,255));
+        TextOut(hdc, d->x+1, py, ch, 1);
+    }
 }
 
 static void draw_bsod(HDC hdc) {
