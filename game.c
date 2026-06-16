@@ -40,8 +40,8 @@ static DotKind rand_kind(void) {
 
 static void spawn_one_dot(int i) {
     g_dots[i].x    = 10 + rand() % (AREA_W - 20);
-    g_dots[i].y    = -(rand() % (AREA_H / 2)) * 256; /* stagger start above screen */
-    g_dots[i].vy   = 128 + rand() % 256;              /* ~0.5 to 1.5 px/tick */
+    g_dots[i].y    = -(rand() % 80) * 256;  /* stagger 0-80px above screen */
+    g_dots[i].vy   = 512 + rand() % 512;    /* 2-4 px/tick = 50-100 px/s at 25 ticks/s */
     g_dots[i].kind = rand_kind();
     g_dots[i].alive = 1;
 }
@@ -64,7 +64,7 @@ static void update_bar_display(void) {
         sprintf(g_bar_label, "NULL%d", g_null_ctr);
     } else if (g_neg_ctr > 0) {
         g_bar_display_pct = g_neg_ctr;
-        sprintf(g_bar_label, "%%-% d", g_neg_ctr);
+        sprintf(g_bar_label, "%%-%d", g_neg_ctr);
     } else {
         g_bar_display_pct = g_progress;
         g_bar_label[0] = '\0';
@@ -193,7 +193,7 @@ void game_tick(void) {
             continue;
         }
 
-        /* Skip until actually on screen */
+        /* Skip collision until on screen */
         if (py < -16) continue;
 
         bx = g_barX; by = g_barY;
@@ -203,7 +203,6 @@ void game_tick(void) {
             g_dots[i].alive = 0;
             apply_dot(g_dots[i].kind);
             if (g_gameOver) return;
-            /* respawn this dot from top */
             spawn_one_dot(i);
         }
     }
