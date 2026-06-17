@@ -6,10 +6,10 @@
 
 #define AREA_W  640
 #define AREA_H  460
-#define BAR_W   288   /* 45% of AREA_W */
+#define BAR_W   180   /* 45% of original 400 */
 #define BAR_H    24
 #define MAX_SEGS 22   /* 20 = 100%, 22 = 110% via cyan */
-#define NUM_SEGS 16   /* falling segments */
+#define NUM_SEGS  4   /* falling segments (2-4 visible at once) */
 #define MAX_GHOSTS 80
 #define GHOST_CLEAR_AFTER 8  /* ticks of no bar movement -> ghosts vanish */
 

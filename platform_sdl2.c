@@ -87,7 +87,7 @@ static void win95_sunken(int x, int y, int w, int h) {
 }
 
 static void draw_bar(int x, int y) {
-    int i, seg_w, sx;
+    int i, seg_w, sx, on_fill;
     char pct[20];
 
     seg_w = (BAR_W - 4) / MAX_SEGS;
@@ -110,7 +110,9 @@ static void draw_bar(int x, int y) {
     } else {
         sprintf(pct, "%d %%", g_progress);
     }
-    rtxt(x + BAR_W/2 - 16, y + (BAR_H-13)/2, pct, 0,0,0);
+    on_fill = !g_null_active && g_bar_seg_count * seg_w > BAR_W / 2;
+    rtxt(x + BAR_W/2 - 16, y + (BAR_H-13)/2, pct,
+         on_fill?255:0, on_fill?255:0, on_fill?255:0);
 }
 
 static void draw_ghost(int x, int y) {
