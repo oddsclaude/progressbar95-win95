@@ -8,6 +8,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <windowsx.h>
 #include <stdio.h>
 #include <string.h>
 #include "game.h"
@@ -54,7 +55,6 @@ static void fill_rect(HDC hdc, int x, int y, int w, int h, COLORREF c) {
 }
 
 static void draw_bar(HDC hdc, int x, int y) {
-    /* y is game-space; add HUD_H for window coords */
     int wy = y + HUD_H;
     int i, seg_w, sx, fill_end;
     char pct[20];
@@ -62,10 +62,8 @@ static void draw_bar(HDC hdc, int x, int y) {
 
     seg_w = (BAR_W - 4) / MAX_SEGS;
 
-    /* interior background */
     fill_rect(hdc, x, wy, BAR_W, BAR_H, RGB(212,208,200));
 
-    /* segment blocks */
     if (!g_null_active) {
         for (i = 0; i < g_bar_seg_count; i++) {
             HBRUSH br;
@@ -78,11 +76,9 @@ static void draw_bar(HDC hdc, int x, int y) {
     }
     (void)fill_end;
 
-    /* Win95 sunken border */
     r.left=x; r.top=wy; r.right=x+BAR_W; r.bottom=wy+BAR_H;
     DrawEdge(hdc, &r, EDGE_SUNKEN, BF_RECT);
 
-    /* label */
     if (g_bar_label[0]) {
         lstrcpyn(pct, g_bar_label, sizeof(pct));
     } else {
@@ -94,7 +90,6 @@ static void draw_bar(HDC hdc, int x, int y) {
 }
 
 static void draw_ghost(HDC hdc, int x, int y) {
-    /* solid grey; ghosts all vanish at once via g_ghost_age */
     fill_rect(hdc, x, y + HUD_H, BAR_W, BAR_H, RGB(180,180,180));
 }
 
@@ -103,10 +98,24 @@ static void draw_seg(HDC hdc, Seg *s) {
     const char *ch;
     RECT r;
     HBRUSH br;
-    int py = s->y / 256 + HUD_H;  /* window coords */
+    int py = s->y / 256 + HUD_H;
+    char vbuf[8];
 
-    if (py + 16 < HUD_H || py > WIN_H) return;  /* fully clipped */
+    if (py + 16 < HUD_H || py > WIN_H) return;
 
+    if (s->kind == SEG_CYAN) {
+        r.left=s->x; r.top=py; r.right=s->x+10; r.bottom=py+16;
+        br = CreateSolidBrush(seg_color(SEG_CYAN));
+        FillRect(hdc, &r, br);
+        DeleteObject(br);
+        sprintf(vbuf, "%d", s->value ? s->value : 2);
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, RGB(255,255,255));
+        TextOut(hdc, s->x+1, py, vbuf, lstrlen(vbuf));
+        return;
+    }
+
+    ch = NULL;
     if (s->kind == SEG_RED) {
         c  = (g_animTick/4)%2 ? RGB(220,0,0) : RGB(120,0,0);
         ch = "!";
@@ -118,7 +127,7 @@ static void draw_seg(HDC hdc, Seg *s) {
     } else if (s->kind == SEG_PINK) {
         c  = seg_color(SEG_PINK); ch = "-";
     } else {
-        c  = seg_color(s->kind); ch = NULL;
+        c  = seg_color(s->kind);
     }
 
     r.left=s->x; r.top=py; r.right=s->x+10; r.bottom=py+16;
@@ -184,24 +193,24 @@ static void on_paint(HWND hwnd) {
     } else if (g_gameOver) {
         draw_gameover(memDC);
     } else {
-        /* teal = transparent -> shows OS desktop */
         fill_rect(memDC, 0, HUD_H, WIN_W, AREA_H, TEAL);
 
-        /* ghosts (solid, instant-clear) */
         for (i = 0; i < g_gCount; i++) {
             int idx = (g_gHead-1-i+MAX_GHOSTS)%MAX_GHOSTS;
             draw_ghost(memDC, g_ghosts[idx].x, g_ghosts[idx].y);
         }
 
-        /* falling segments */
         for (i = 0; i < NUM_SEGS; i++)
             if (g_segs[i].alive && g_segs[i].y/256 >= 0)
                 draw_seg(memDC, &g_segs[i]);
 
-        /* progress bar */
         draw_bar(memDC, g_barX, g_barY);
 
-        /* HUD strip at top (opaque grey) */
+        for (i = 0; i < g_particle_count; i++) {
+            fill_rect(memDC, g_particles[i].x, g_particles[i].y + HUD_H,
+                      2, 2, RGB(g_particles[i].cr, g_particles[i].cg, g_particles[i].cb));
+        }
+
         fill_rect(memDC, 0, 0, WIN_W, HUD_H, RGB(192,192,192));
         sprintf(hud, "Level: %d  Score: %d  Lives: %d  %s",
             g_level, g_score, g_lives,
@@ -230,19 +239,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_LBUTTONDOWN:
             if (g_bsod) game_dismiss_bsod();
             else if (!g_gameOver) {
-                /* subtract HUD_H to get game-space coords */
-                game_click(LOWORD(lParam), HIWORD(lParam) - HUD_H);
+                game_click(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) - HUD_H);
                 SetCapture(hwnd);
             }
             return 0;
         case WM_MOUSEMOVE:
-            game_drag(LOWORD(lParam), HIWORD(lParam) - HUD_H);
+            game_drag(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) - HUD_H);
             return 0;
         case WM_LBUTTONUP:
             game_release(); ReleaseCapture();
             return 0;
         case WM_RBUTTONDOWN:
-            /* right-click to quit (no title bar in overlay mode) */
             PostQuitMessage(0);
             return 0;
         case WM_KEYDOWN:
@@ -272,13 +279,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmd, int nShow) {
     wc.style         = CS_HREDRAW|CS_VREDRAW;
     wc.lpfnWndProc   = WndProc;
     wc.hInstance     = hInst;
-    wc.hbrBackground = NULL;  /* we paint everything */
+    wc.hbrBackground = NULL;
     wc.lpszClassName = "ProgressBar95";
     wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
     wc.hIcon         = LoadIcon(NULL, IDI_APPLICATION);
     RegisterClass(&wc);
 
-    /* center on screen */
     sx = (GetSystemMetrics(SM_CXSCREEN) - WIN_W) / 2;
     sy = (GetSystemMetrics(SM_CYSCREEN) - WIN_H) / 4;
 
@@ -291,7 +297,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmd, int nShow) {
     );
     if (!g_hwnd) return 1;
 
-    /* teal pixels become fully transparent -> desktop shows through */
     SetLayeredWindowAttributes(g_hwnd, TEAL, 0, LWA_COLORKEY);
 
     while (GetMessage(&msg,NULL,0,0)) {

@@ -12,6 +12,7 @@
 #define NUM_SEGS  4   /* falling segments (2-4 visible at once) */
 #define MAX_GHOSTS 80
 #define GHOST_CLEAR_AFTER 8  /* ticks of no bar movement -> ghosts vanish */
+#define MAX_PARTICLES 64
 
 typedef enum {
     SEG_BLUE,    /* +5% (1 slot), most common */
@@ -32,27 +33,37 @@ typedef struct {
     int vy;       /* fall speed, fixed-point per tick */
     SegKind kind;
     int alive;
+    int value;    /* SEG_CYAN: pre-rolled blue count (2 or 3) */
 } Seg;
 
-extern int     g_barX, g_barY;
-extern Ghost   g_ghosts[MAX_GHOSTS];
-extern int     g_gHead, g_gCount;
-extern int     g_ghost_age;     /* ticks since last bar move */
-extern int     g_progress;      /* blue_count * 5 */
-extern int     g_perfectionist;
-extern int     g_lives;
-extern Seg     g_segs[NUM_SEGS];
-extern int     g_gameOver;
-extern int     g_bsod;
-extern int     g_level;
-extern int     g_score;
-extern int     g_animTick;
-extern SegKind g_bar_segs[MAX_SEGS];
-extern int     g_bar_seg_count;
-extern char    g_bar_label[16]; /* "NULL##" / "%%-%d" / empty */
-extern int     g_null_active;   /* NULL mode: transparent fill, any part catches */
-extern int     g_pink_active;   /* magic pink mode */
-extern int     g_random_active; /* ??? mode triggered by random at empty bar */
+typedef struct {
+    int x, y;              /* game-space pixels */
+    int vx, vy;            /* pixels per tick */
+    int life;              /* ticks remaining */
+    unsigned char cr, cg, cb;
+} Particle;
+
+extern int      g_barX, g_barY;
+extern Ghost    g_ghosts[MAX_GHOSTS];
+extern int      g_gHead, g_gCount;
+extern int      g_ghost_age;     /* ticks since last bar move */
+extern int      g_progress;      /* blue_count * 5 */
+extern int      g_perfectionist;
+extern int      g_lives;
+extern Seg      g_segs[NUM_SEGS];
+extern int      g_gameOver;
+extern int      g_bsod;
+extern int      g_level;
+extern int      g_score;
+extern int      g_animTick;
+extern SegKind  g_bar_segs[MAX_SEGS];
+extern int      g_bar_seg_count;
+extern char     g_bar_label[16]; /* "NULL##" / "%%-%d" / empty */
+extern int      g_null_active;   /* NULL mode: transparent fill, any part catches */
+extern int      g_pink_active;   /* magic pink mode */
+extern int      g_random_active; /* ??? mode triggered by random at empty bar */
+extern Particle g_particles[MAX_PARTICLES];
+extern int      g_particle_count;
 
 void game_init(void);
 void game_tick(void);

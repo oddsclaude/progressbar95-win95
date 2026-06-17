@@ -6,25 +6,27 @@
 #include <stdio.h>
 #include <time.h>
 
-int     g_barX, g_barY;
-Ghost   g_ghosts[MAX_GHOSTS];
-int     g_gHead, g_gCount;
-int     g_ghost_age;
-int     g_progress;
-int     g_perfectionist;
-int     g_lives;
-Seg     g_segs[NUM_SEGS];
-int     g_gameOver;
-int     g_bsod;
-int     g_level;
-int     g_score;
-int     g_animTick;
-SegKind g_bar_segs[MAX_SEGS];
-int     g_bar_seg_count;
-char    g_bar_label[16];
-int     g_null_active;
-int     g_pink_active;
-int     g_random_active;
+int      g_barX, g_barY;
+Ghost    g_ghosts[MAX_GHOSTS];
+int      g_gHead, g_gCount;
+int      g_ghost_age;
+int      g_progress;
+int      g_perfectionist;
+int      g_lives;
+Seg      g_segs[NUM_SEGS];
+int      g_gameOver;
+int      g_bsod;
+int      g_level;
+int      g_score;
+int      g_animTick;
+SegKind  g_bar_segs[MAX_SEGS];
+int      g_bar_seg_count;
+char     g_bar_label[16];
+int      g_null_active;
+int      g_pink_active;
+int      g_random_active;
+Particle g_particles[MAX_PARTICLES];
+int      g_particle_count;
 
 static int g_gTimer;
 static int g_dragging;
@@ -118,6 +120,7 @@ static void init_seg(int i) {
     g_segs[i].kind  = rand_kind();
     g_segs[i].vy    = kind_vy(g_segs[i].kind);
     g_segs[i].alive = 1;
+    g_segs[i].value = (g_segs[i].kind == SEG_CYAN) ? (2 + rand() % 2) : 0;
 }
 
 static void respawn_seg(int i) {
@@ -126,6 +129,7 @@ static void respawn_seg(int i) {
     g_segs[i].kind  = rand_kind();
     g_segs[i].vy    = kind_vy(g_segs[i].kind);
     g_segs[i].alive = 1;
+    g_segs[i].value = (g_segs[i].kind == SEG_CYAN) ? (2 + rand() % 2) : 0;
 }
 
 static void spawn_segs(void) {
@@ -140,7 +144,7 @@ static void reset_bar_pos(void) {
     g_dragging = 0;
 }
 
-static void apply_seg(SegKind k) {
+static void apply_seg(SegKind k, int value) {
     int is_random;
     is_random = (k == SEG_RANDOM);
     if (is_random) {
@@ -189,7 +193,7 @@ static void apply_seg(SegKind k) {
         }
         case SEG_CYAN: {
             int n, i;
-            n = (rand() % 2) ? 3 : 2;
+            n = (value >= 2) ? value : (2 + rand() % 2);
             g_null_active = 0; g_pink_active = 0;
             for (i = 0; i < n; i++) push_seg(SEG_BLUE);
             g_score += 15 * n;
@@ -198,6 +202,35 @@ static void apply_seg(SegKind k) {
         default: break;
     }
     update_display();
+}
+
+/* --- particle helpers --- */
+
+static void seg_rgb(SegKind k, unsigned char *cr, unsigned char *cg, unsigned char *cb) {
+    switch (k) {
+        case SEG_BLUE:   *cr=0;   *cg=0;   *cb=170; return;
+        case SEG_YELLOW: *cr=255; *cg=140; *cb=0;   return;
+        case SEG_PINK:   *cr=255; *cg=0;   *cb=200; return;
+        case SEG_GREY:   *cr=170; *cg=170; *cb=170; return;
+        case SEG_GREEN:  *cr=0;   *cg=200; *cb=0;   return;
+        case SEG_CYAN:   *cr=0;   *cg=190; *cb=255; return;
+        default:         *cr=255; *cg=255; *cb=255; return;
+    }
+}
+
+static void spawn_particles(int x, int y, SegKind k) {
+    int i;
+    unsigned char cr, cg, cb;
+    seg_rgb(k, &cr, &cg, &cb);
+    for (i = 0; i < 5 && g_particle_count < MAX_PARTICLES; i++) {
+        Particle *p = &g_particles[g_particle_count++];
+        p->x  = x + 5;
+        p->y  = y;
+        p->vx = (rand() % 5) - 2;
+        p->vy = -(rand() % 4) - 1;
+        p->life = 8 + rand() % 8;
+        p->cr = cr; p->cg = cg; p->cb = cb;
+    }
 }
 
 void game_init(void) {
@@ -219,6 +252,7 @@ void game_restart(void) {
     g_pink_active = 0;
     g_random_active = 0;
     g_bar_label[0] = '\0';
+    g_particle_count = 0;
     reset_bar_pos();
     spawn_segs();
 }
@@ -227,6 +261,7 @@ void game_dismiss_bsod(void) {
     g_bsod = 0;
     g_gameOver = 0;
     g_lives--;
+    g_particle_count = 0;
     if (g_lives < 0) {
         g_gameOver = 1;
     } else {
@@ -314,11 +349,26 @@ void game_tick(void) {
                 continue;
             }
             if (catch_it) {
-                apply_seg(g_segs[i].kind);
+                apply_seg(g_segs[i].kind, g_segs[i].value);
                 if (g_gameOver) return;
+                respawn_seg(i);
+            } else {
+                /* segment hit the filled portion - destroy with particles */
+                spawn_particles(px, py, g_segs[i].kind);
                 respawn_seg(i);
             }
         }
+    }
+
+    /* Update particles */
+    for (i = 0; i < g_particle_count; ) {
+        g_particles[i].x += g_particles[i].vx;
+        g_particles[i].y += g_particles[i].vy;
+        g_particles[i].vy++;
+        if (--g_particles[i].life <= 0)
+            g_particles[i] = g_particles[--g_particle_count];
+        else
+            i++;
     }
 
     /* Level complete */
@@ -338,6 +388,7 @@ void game_tick(void) {
         g_pink_active = 0;
         g_random_active = 0;
         g_bar_label[0] = '\0';
+        g_particle_count = 0;
         reset_bar_pos();
         spawn_segs();
     }

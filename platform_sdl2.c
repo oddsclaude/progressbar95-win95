@@ -114,31 +114,37 @@ static void draw_bar(int x, int y) {
 }
 
 static void draw_ghost(int x, int y) {
-    /* solid; all vanish at once via g_ghost_age (no fade) */
     fill(x, y, BAR_W, BAR_H, 180,180,180);
 }
 
 static void draw_seg(Seg *s) {
     Col c;
-    const char *ch;
     int py = s->y / 256;
 
-    if (s->kind == SEG_RED) {
-        int fl = (g_animTick/4)%2;
-        c.r = fl?220:120; c.g = 0; c.b = 0;
-        ch = "!";
-    } else if (s->kind == SEG_RANDOM) {
-        c = cycle_col(); ch = "?";
-    } else if (s->kind == SEG_GREY) {
-        c = seg_col(SEG_GREY); ch = "0";
-    } else if (s->kind == SEG_PINK) {
-        c = seg_col(SEG_PINK); ch = "-";
+    if (s->kind == SEG_CYAN) {
+        char vbuf[4];
+        c = seg_col(SEG_CYAN);
+        fill(s->x, py, 10, 16, c.r, c.g, c.b);
+        sprintf(vbuf, "%d", s->value ? s->value : 2);
+        rtxt(s->x + 1, py, vbuf, 255, 255, 255);
     } else {
-        c = seg_col(s->kind); ch = NULL;
+        const char *ch = NULL;
+        if (s->kind == SEG_RED) {
+            int fl = (g_animTick/4)%2;
+            c.r = fl?220:120; c.g = 0; c.b = 0;
+            ch = "!";
+        } else if (s->kind == SEG_RANDOM) {
+            c = cycle_col(); ch = "?";
+        } else if (s->kind == SEG_GREY) {
+            c = seg_col(SEG_GREY); ch = "0";
+        } else if (s->kind == SEG_PINK) {
+            c = seg_col(SEG_PINK); ch = "-";
+        } else {
+            c = seg_col(s->kind);
+        }
+        fill(s->x, py, 10, 16, c.r, c.g, c.b);
+        if (ch) rtxt(s->x+1, py, ch, 255,255,255);
     }
-
-    fill(s->x, py, 10, 16, c.r, c.g, c.b);
-    if (ch) rtxt(s->x+1, py, ch, 255,255,255);
 }
 
 static void draw_bsod(void) {
@@ -180,6 +186,11 @@ static void render(void) {
     for (i = 0; i < NUM_SEGS; i++)
         if (g_segs[i].alive && g_segs[i].y/256 >= 0) draw_seg(&g_segs[i]);
     draw_bar(g_barX, g_barY);
+
+    for (i = 0; i < g_particle_count; i++) {
+        Particle *p = &g_particles[i];
+        fill(p->x, p->y, 2, 2, p->cr, p->cg, p->cb);
+    }
 
     fill(0,AREA_H,WIN_W,22, 192,192,192);
     sprintf(hud,"Level: %d   Score: %d   Lives: %d   %s",
@@ -232,10 +243,15 @@ int main(int argc, char *argv[]) {
             }
             if (e.type==SDL_MOUSEBUTTONDOWN && e.button.button==SDL_BUTTON_LEFT) {
                 if (g_bsod) game_dismiss_bsod();
-                else game_click(e.button.x, e.button.y);
+                else {
+                    game_click(e.button.x, e.button.y);
+                    SDL_CaptureMouse(SDL_TRUE);
+                }
             }
-            if (e.type==SDL_MOUSEBUTTONUP && e.button.button==SDL_BUTTON_LEFT)
+            if (e.type==SDL_MOUSEBUTTONUP && e.button.button==SDL_BUTTON_LEFT) {
                 game_release();
+                SDL_CaptureMouse(SDL_FALSE);
+            }
             if (e.type==SDL_MOUSEMOTION)
                 game_drag(e.motion.x, e.motion.y);
         }
