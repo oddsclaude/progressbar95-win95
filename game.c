@@ -86,15 +86,16 @@ static void update_display(void) {
 /* --- falling segment helpers --- */
 
 static SegKind rand_kind(void) {
-    int r = rand() % 40;
-    if (r < 20) return SEG_BLUE;
-    if (r < 24) return SEG_YELLOW;
-    if (r < 27) return SEG_PINK;
-    if (r < 30) return SEG_GREY;
-    if (r < 34) return SEG_RED;
-    if (r < 36) return SEG_RANDOM;
-    if (r < 37) return SEG_GREEN;  /* 1/40 = 2.5% (was 2/40) */
-    return SEG_CYAN;
+    /* scaled to /1000 for 0.1% green */
+    int r = rand() % 1000;
+    if (r < 500) return SEG_BLUE;    /* 50.0% */
+    if (r < 600) return SEG_YELLOW;  /* 10.0% */
+    if (r < 675) return SEG_PINK;    /*  7.5% */
+    if (r < 750) return SEG_GREY;    /*  7.5% */
+    if (r < 850) return SEG_RED;     /* 10.0% */
+    if (r < 900) return SEG_RANDOM;  /*  5.0% */
+    if (r < 901) return SEG_GREEN;   /*  0.1% */
+    return SEG_CYAN;                 /*  9.9% */
 }
 
 static SegKind random_resolve(void) {
