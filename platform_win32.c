@@ -111,7 +111,7 @@ static void draw_seg(HDC hdc, Seg *s) {
         sprintf(vbuf, "%d", s->value ? s->value : 2);
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, RGB(255,255,255));
-        TextOut(hdc, s->x+1, py, vbuf, lstrlen(vbuf));
+        TextOut(hdc, s->x + 12, py, vbuf, lstrlen(vbuf));  /* right of block */
         return;
     }
 
@@ -128,6 +128,7 @@ static void draw_seg(HDC hdc, Seg *s) {
         c  = seg_color(SEG_PINK); ch = "-";
     } else {
         c  = seg_color(s->kind);
+        ch = NULL;
     }
 
     r.left=s->x; r.top=py; r.right=s->x+10; r.bottom=py+16;

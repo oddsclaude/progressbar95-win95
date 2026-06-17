@@ -126,7 +126,7 @@ static void draw_seg(Seg *s) {
         c = seg_col(SEG_CYAN);
         fill(s->x, py, 10, 16, c.r, c.g, c.b);
         sprintf(vbuf, "%d", s->value ? s->value : 2);
-        rtxt(s->x + 1, py, vbuf, 255, 255, 255);
+        rtxt(s->x + 12, py, vbuf, 255, 255, 255);  /* right of block */
     } else {
         const char *ch = NULL;
         if (s->kind == SEG_RED) {

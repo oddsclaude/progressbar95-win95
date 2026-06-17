@@ -93,7 +93,7 @@ static SegKind rand_kind(void) {
     if (r < 30) return SEG_GREY;
     if (r < 34) return SEG_RED;
     if (r < 36) return SEG_RANDOM;
-    if (r < 38) return SEG_GREEN;
+    if (r < 37) return SEG_GREEN;  /* 1/40 = 2.5% (was 2/40) */
     return SEG_CYAN;
 }
 
@@ -109,9 +109,9 @@ static SegKind random_resolve(void) {
 }
 
 static int kind_vy(SegKind k) {
-    if (k == SEG_GREEN)  return 2048;
-    if (k == SEG_RANDOM) return 512;
-    return 1024;
+    if (k == SEG_GREEN)  return 4096;  /* 2x: was 2048 */
+    if (k == SEG_RANDOM) return 1024;  /* 2x: was 512 */
+    return 2048;                        /* 2x: was 1024 */
 }
 
 static void init_seg(int i) {
@@ -282,8 +282,9 @@ void game_drag(int mx, int my) {
     if (!g_dragging || g_gameOver) return;
     newX = mx - g_dragOffX;
     newY = my - g_dragOffY;
-    if (newX < 0) newX = 0;
-    if (newX + BAR_W > AREA_W) newX = AREA_W - BAR_W;
+    /* allow bar to slide one full width off-screen on x for edge catches */
+    if (newX < -BAR_W) newX = -BAR_W;
+    if (newX > AREA_W) newX = AREA_W;
     if (newY < 0) newY = 0;
     if (newY + BAR_H > AREA_H) newY = AREA_H - BAR_H;
     if (newX != g_barX || newY != g_barY) {
