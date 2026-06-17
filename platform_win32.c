@@ -89,7 +89,7 @@ static void draw_bar(HDC hdc, int x, int y) {
         sprintf(pct, "%d %%", g_progress);
     }
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, (!g_null_active && g_bar_seg_count * seg_w > BAR_W/2) ? RGB(255,255,255) : RGB(0,0,0));
+    SetTextColor(hdc, RGB(255,255,255));
     TextOut(hdc, x + BAR_W/2 - 16, wy + (BAR_H-16)/2, pct, lstrlen(pct));
 }
 
